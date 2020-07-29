@@ -40,8 +40,6 @@ function [cfg] = setParameters(cfg)
 
     %% Aperture details
 
-    
-
     switch  cfg.aperture.type
 
         case 'none'
@@ -67,7 +65,7 @@ function [cfg] = setParameters(cfg)
 
     cfg.cyclesPerExpmt = 3;
     cfg.volsPerCycle = cfg.aperture.volsPerCycle;
-cfg.aperture.framePerVolume = 3;
+    cfg.aperture.framePerVolume = 3;
 
     %% Experiment parameters
 
