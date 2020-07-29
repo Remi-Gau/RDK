@@ -40,6 +40,8 @@ function [cfg] = setParameters(cfg)
 
     %% Aperture details
 
+    
+
     switch  cfg.aperture.type
 
         case 'none'
@@ -62,6 +64,10 @@ function [cfg] = setParameters(cfg)
             cfg.aperture.width = 60;
             cfg.aperture.volsPerCycle = 60;
     end
+
+    cfg.cyclesPerExpmt = 3;
+    cfg.volsPerCycle = cfg.aperture.volsPerCycle;
+cfg.aperture.framePerVolume = 3;
 
     %% Experiment parameters
 
@@ -104,21 +110,24 @@ function [cfg] = setParameters(cfg)
     %% Compute some more parameters
 
     % aperture details
-    cfg.aperture.cycle_duration = cfg.bids.MRI.RepetitionTime * ...
+    cfg.aperture.cycleDuration = cfg.mri.repetitionTime * ...
         cfg.aperture.volsPerCycle;
 
-    switch cfg.aperture.style
+    switch cfg.aperture.type
 
         case 'ring'
+
+            cfg.screen.FOV = computeFOV(cfg);
+
             % ring apertures
             % cs_func_fact is used to expand with log increasing speed so that ring is at
             % max_ecc at end of cycle
             cfg.ring.maxEcc = ...
                 cfg.screen.FOV / 2 + cfg.aperture.width + log(cfg.screen.FOV / 2 + 1) ;
             cfg.ring.csFuncFact = ...
-                1 / ((cfg.ring.maxEcc + exp(1)) ...
-                * log(cfg.ring.maxEcc + exp(1)) ...
-                - (cfg.ring.maxEcc + exp(1)));
+                1 / ((cfg.ring.maxEcc + exp(1)) * ...
+                log(cfg.ring.maxEcc + exp(1)) - ...
+                (cfg.ring.maxEcc + exp(1)));
 
     end
 
@@ -152,7 +161,7 @@ function [cfg] = setParameters(cfg)
 
 end
 
-function [cfg, expParameters] = setKeyboards(cfg, expParameters)
+function [cfg] = setKeyboards(cfg)
     cfg.keyboard.escapeKey = 'ESCAPE';
     cfg.keyboard.responseKey = {'space'};
     cfg.keyboard.keyboard = [];
@@ -164,26 +173,26 @@ function [cfg, expParameters] = setKeyboards(cfg, expParameters)
     end
 end
 
-function [cfg, expParameters] = setMRI(cfg, expParameters)
+function [cfg] = setMRI(cfg)
     % letter sent by the trigger to sync stimulation and volume acquisition
     cfg.mri.triggerKey = 't';
     cfg.mri.triggerNb = 4;
     cfg.mri.triggerString = 'Waiting for the scanner';
 
-    expParameters.mri.repetitionTime = 1;
+    cfg.mri.repetitionTime = 1;
 
-    expParameters.bids.MRI.Instructions = '';
-    expParameters.bids.MRI.TaskDescription = [];
+    cfg.bids.MRI.Instructions = '';
+    cfg.bids.MRI.TaskDescription = [];
 
 end
 
-function [cfg, expParameters] = setMonitor(cfg, expParameters)
+function [cfg] = setMonitor(cfg)
 
     % Monitor parameters for PTB
     cfg.color.white = [255 255 255];
     cfg.color.black = [0 0 0];
     cfg.color.red = [255 0 0];
-    cfg.grey = mean([cfg.color.black; cfg.color.white]);
+    cfg.color.gray = mean([cfg.color.black; cfg.color.white]);
     cfg.color.background = [127 127 127];
     cfg.color.foreground = cfg.color.black;
 
@@ -194,7 +203,7 @@ function [cfg, expParameters] = setMonitor(cfg, expParameters)
     % Resolution [width height refresh_rate]
     cfg.screen.resolution = [800 600 60];
 
-    cfg.text.color = cfg.black;
+    cfg.text.color = cfg.color.black;
     cfg.text.font = 'Courier New';
     cfg.text.size = 18;
     cfg.text.style = 1;

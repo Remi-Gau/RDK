@@ -1,12 +1,12 @@
 function [apertureTexture, current] = getApertureCfg(cfg, current, apertureTexture, matrixSize, rect)
 
-    style = cfg.aperture.style;
+    type = cfg.aperture.type;
 
     cycleDuration = cfg.aperture.cycleDuration;
 
     current.appertureAngle = 90;
 
-    switch style
+    switch type
 
         case 'none'
 
