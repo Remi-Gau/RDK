@@ -1,4 +1,4 @@
-function [X] = getX(nDots, matrix_size)
+function [X] = getX(nDots, matrixSize)
     % Gives random position to the dots in x and y
-    X  =  rand(nDots,1) * matrix_size - matrix_size/2;
+    X  =  rand(nDots,1) * matrixSize - matrixSize/2;
 end

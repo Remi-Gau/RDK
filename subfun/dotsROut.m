@@ -1,14 +1,14 @@
-function [xy] = dotsROut(xy, matrix_size)
-r_out  = xy(:,5) > matrix_size/2;
+function [xy] = dotsROut(xy, matrixSize)
+rOut  = xy(:,5) > matrixSize/2;
 % If there are we reset them at a diametrically opposite position
-if any(r_out)
+if any(rOut)
     %             xy(r_out,1:2) = xy(r_out,1:2) * -1;
     
-    X = getX(sum(r_out), matrix_size);
-    Y = getY(sum(r_out), matrix_size, X);
+    X = getX(sum(rOut), matrixSize);
+    Y = getY(sum(rOut), matrixSize, X);
     
-    xy(r_out,1) =  X;
-    xy(r_out,2) =  Y;
+    xy(rOut,1) =  X;
+    xy(rOut,2) =  Y;
 
     
 end

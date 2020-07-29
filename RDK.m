@@ -1,332 +1,333 @@
-function RDK(subj, direction, emulate, debug)
-
-% Display a random dot kinetogram
-
-clear
-close all
-clc
-
-if nargin == 0
-    subj = 66;
-    run = 1;
-    aperture_style = 'none';
-    direction = '-';
-    emulate = true;
-    debug = true;
-end
-
-if isempty(subj)
-    subj = input('Subject number? ');
-    run = input('Retinotopic run number? ');
-end
-
-task = 'RDK';
-
-PARAMETERS = config(subj, run, task, aperture_style, direction);
-
-
-
-%% Initialize variables
-prev_keypr = 0;
-
-BEHAVIOUR.response = [];
-BEHAVIOUR.responseTime = [];
-
-TARGET.was_event = false;
-
-target_data = [];
-
-CURRENT.Frame = 0;
-CURRENT.Stim = 1;
-CURRENT.angle_motion = PARAMETERS.angle_motion;
-
-
-%% Setup
-SetUpRand
-
-PARAMETERS = eyeTrack(PARAMETERS, 'init');
-
-% Event timings
-% Events is a vector that says when (in seconds from the start of the
-% experiment) a target should be presented.
-events = createEventsTiming(PARAMETERS);
-
-[trig_str, PARAMETERS] = configScanner(emulate, PARAMETERS);
-
-
-% put everything into a try / catch in case the poop hits the fan
-try
+function RDK(apertureType, direction, emul, debug)
     
-    
-    %% Initialize PTB
-    
-    keyCodes = setupKeyCodes;
-    
-    [win, rect, ~, ifi, PARAMETERS] = initPTB(PARAMETERS, debug);
-    PARAMETERS.ifi = ifi;
-    PARAMETERS.frame_per_volume = ceil(PARAMETERS.TR/ifi);
-    % Pixel per degree
-    ppd = getPPD(rect, PARAMETERS);
-    PARAMETERS.ppd = ppd;
-    
-    TARGET.event_size_pix = PARAMETERS.event_size * ppd;
-    
-    fixation_size_pix = PARAMETERS.fixation_size * ppd;
-    
-    
-    %% Set general RDK and display details
-    % diameter of circle covered by the RDK
-    matrix_size = floor(rect(4) * PARAMETERS.matrix_size);
-    
-    % set center of the dot texture that will be created
-    stim_rect = [0 0 repmat(matrix_size, 1, 2)];
-    [center(1,1), center(1,2)] = RectCenter(stim_rect);
-    
-    % dot speed (pixels/frame) - pixel frame speed
-    pfs = PARAMETERS.dot_speed * ppd * ifi;
-    
-    % dot size (pixels)
-    dot_s = PARAMETERS.dot_w * ppd;
-    
-    % Number of dots : surface of the RDK disc * density of dots
-    nDots = getNumberDots(PARAMETERS.dot_w, matrix_size,  PARAMETERS.dot_density, ppd);
-    
-    % decide which dots are signal dots (1) and those are noise dots (0)
-    dot_nature = rand(nDots,1) < PARAMETERS.coherence;
-    
-    % speed rotation of motion direction in degrees per frame
-    spd_rot_mot_f = PARAMETERS.spd_rot_mot_sec * ifi;
-    
-    
-    %% Aperture variables
-    if strcmp (PARAMETERS.aperture.style, 'bar')
-        bar_width_pix = stim_rect(3) / PARAMETERS.aperture.vols_per_cycle;
-        bar_positions = [0 : bar_width_pix : stim_rect(3)-bar_width_pix] ...
-            + (rect(3)/2-stim_rect(3)/2) + bar_width_pix / 2; %#ok<NBRAK>
-        
-        PARAMETERS.aperture.bar_width_pix = bar_width_pix;
-        PARAMETERS.aperture.bar_positions = bar_positions;
-        PARAMETERS.aperture.bar_width_VA = bar_width_pix / ppd; % Width of bar in degrees of VA (needed for saving)
-        PARAMETERS.aperture.bar_positions_VA = (bar_positions - rect(3)/2) / ppd; % in VA
-        clear bar_width_pix bar_positions
+    if nargin < 1
+        apertureType = 'bar';
+    end
+    if nargin < 2
+        direction = '-';
+    end
+    if nargin < 3
+        emul = 1;
+    end
+    if nargin < 4
+        debug = 1;
     end
     
+    initEnv();
     
-    %% Initialize dots
-    % Dot positions and speed matrix : colunm 1 to 5 gives respectively
-    % x position, y position, x speed, y speed, and distance of the point the RDK center
-    xy = zeros(nDots,5);
+    %% Experiment parameters
     
-    % fills a square with dots and we will later remove those outside of
-    % the frame
-    [X] = getX(nDots, matrix_size);
-    [Y] = getY(nDots, matrix_size, X);
+    cfg.task.name = 'retinotopyPolar';
     
-    xy(:,1) = X;
-    xy(:,2) = Y;
-    clear X Y
+    cfg.aperture.type = apertureType;
+    cfg.aperture.direction = direction;
     
-    % decompose angle of start motion into horizontal and vertical vector
-    [hor_vector, vert_vector] = decompMotion(CURRENT.angle_motion);
+    cfg.debug = debug;
     
-    % Gives a pre determinded horizontal and vertical speed to the signal dots
-    xy = getXYMotion(xy, dot_nature, hor_vector, vert_vector, pfs);
-    
-    % Gives a random horizontal and vertical speed to the other ones
-    xy(~dot_nature,3:4) = randn(sum(~dot_nature),2) * pfs;
-    
-    % calculate distance from matrix center for each dot
-    xy = getDist2Center(xy);
-    
-    
-    %% Initialize textures
-    % Create dot texture
-    dot_texture = Screen('MakeTexture', win, PARAMETERS.gray * ones(matrix_size));
-    
-    % Aperture texture
-    aperture_texture = Screen('MakeTexture', win, PARAMETERS.gray * ones(rect([4 3])));
-    
-    
-    %% Standby screen
-    Screen('FillRect', win, PARAMETERS.gray, rect);
-    
-    DrawFormattedText(win, ...
-        [PARAMETERS.welcome '\n \n' PARAMETERS.instruction '\n \n' trig_str], ...
-        'center', 'center', PARAMETERS.white);
-    
-    Screen('Flip', win);
-    
-    HideCursor;
-    
-    Priority(MaxPriority(win));
-    
-    
-    %% Wait for start of experiment
-    if emulate == 1
-        [~, key, ~] = KbPressWait;
-        WaitSecs(PARAMETERS.TR * PARAMETERS.dummies);
+    if ~emul
+        cfg.testingDevice = 'mri';
     else
-        [my_port] = waitForScanTrigger(PARAMETERS);
+        cfg.testingDevice = 'pc';
     end
     
-    QUIT = experimentAborted(key, keyCodes, win, PARAMETERS, rect);
+    cfg = setParameters(cfg);
+    
+    cfg = userInputs(cfg);
+    cfg = createFilename(cfg);
+    
+    % Prepare for the output logfiles with all
+    logFile.extraColumns = cfg.extraColumns;
+    logFile = saveEventsFile('open', cfg, logFile);
+    
+    disp(cfg);
     
     
-    %% Start
-    eyeTrack(PARAMETERS, 'start');
+    %% Initialize variables
+    prev_keypr = 0;
     
-    % Do initial flip...
-    vbl = Screen('Flip', win);
+    target.was_event = false;
     
-    start_expmt = vbl;
+    target_data = [];
     
-    CURRENT.cycle = 1;
-    CURRENT.frame = 1;
-    CURRENT.volume = 1;
-    CURRENT.condition = 1;
+    current.frame = 0;
+    current.stim = 1;
+    current.angleMotion = cfg.angleMotion;
     
-    for i = 1:PARAMETERS.n_frames
+    
+    %% Setup
+    % TODO
+    % Randomness
+    %     setUpRand;
+    
+    
+    % Event timings
+    % Events is a vector that says when (in seconds from the start of the
+    % experiment) a target should be presented.
+    events = createTargetsTiming(cfg);
+    
+    % put everything into a try / catch in case the poop hits the fan
+    try
         
-        CURRENT.time = GetSecs - start_expmt;
         
-        CURRENT.frame = CURRENT.frame + 1;
+        %% Initialize PTB
         
-        if CURRENT.frame > PARAMETERS.frame_per_volume
-            CURRENT.frame = 1;
-            CURRENT.volume = CURRENT.volume + 1;
+        [cfg] = initPTB(cfg);
+        
+        cfg.framePerVolume = ceil(cfg.TR/ifi);
+        
+        % apply pixels per degree conversion
+        target = degToPix('size', target, cfg);
+        cfg.fixation = degToPix('size', cfg.fixation, cfg);
+        
+        
+        %% Set general RDK and display details
+        % diameter of circle covered by the RDK
+        matrixSize = floor(rect(4) * cfg.matrixSize);
+        
+        % set center of the dot texture that will be created
+        stimRect = [0 0 repmat(matrixSize, 1, 2)];
+        [center(1,1), center(1,2)] = RectCenter(stimRect);
+        
+        % dot speed (pixels/frame) - pixel frame speed
+        pixelPerFrame = cfg.dot.speed * cfg.screen.ppd * cfg.screen.ifi;
+        
+        % dot size (pixels)
+        dotSize = cfg.dot.width * cfg.screen.ppd;
+        
+        % Number of dots : surface of the RDK disc * density of dots
+        nDots = getNumberDots(cfg.dot.width, matrixSize,  cfg.dotDensity, cfg.screen.ppd);
+        
+        % decide which dots are signal dots (1) and those are noise dots (0)
+        dotNature = rand(nDots,1) < cfg.dot.coherence;
+        
+        % speed rotation of motion direction in degrees per frame
+        speedRotationMotion = cfg.dot.speedRotationMotion * cfg.screen.ifi;
+        
+        
+        %% Aperture variables
+        if strcmp (cfg.aperture.style, 'bar')
+            barWidthPix = stimRect(3) / cfg.aperture.volsPerCycle;
+            barPositions = [0 : barWidthPix : stimRect(3)-barWidthPix] ...
+                + (rect(3)/2-stimRect(3)/2) + barWidthPix / 2; %#ok<NBRAK>
+            
+            cfg.aperture.barWidthPix = barWidthPix;
+            cfg.aperture.barPositions = barPositions;
+            
+            % Width and position of bar in degrees of VA (needed for saving)
+            cfg.aperture.barWidth = barWidthPix / cfg.screen.ppd; 
+            cfg.aperture.barPositions = (barPositions - rect(3)/2) / cfg.screen.ppd; 
+            clear barWidthPix barPositions
         end
         
-        if CURRENT.volume > PARAMETERS.aperture.vols_per_cycle
-            CURRENT.volume = 1;
-            CURRENT.condition = CURRENT.condition + 1;
-        end
-
-        if QUIT
-            return
-        end
         
+        %% Initialize dots
+        % Dot positions and speed matrix : colunm 1 to 5 gives respectively
+        % x position, y position, x speed, y speed, and distance of the point the RDK center
+        xy = zeros(nDots,5);
         
-        %% Remove dots that are too far out, kill dots, reseed dots,
-        % Finds if there are dots to reposition because out of the RDK
-        xy = dotsROut(xy, matrix_size);
+        % fills a square with dots and we will later remove those outside of
+        % the frame
+        [X] = getX(nDots, matrixSize);
+        [Y] = getY(nDots, matrixSize, X);
         
-        % Kill some dots and reseed them at random position
-        xy = dotsReseed(nDots, PARAMETERS.fraction_kill, matrix_size, xy);
+        xy(:,1) = X;
+        xy(:,2) = Y;
+        clear X Y
+        
+        % decompose angle of start motion into horizontal and vertical vector
+        [horVector, vertVector] = decompMotion(current.angleMotion);
+        
+        % Gives a pre determinded horizontal and vertical speed to the signal dots
+        xy = getXYMotion(xy, dotNature, horVector, vertVector, pixelPerFrame);
+        
+        % Gives a random horizontal and vertical speed to the other ones
+        xy(~dotNature,3:4) = randn(sum(~dotNature),2) * pixelPerFrame;
         
         % calculate distance from matrix center for each dot
         xy = getDist2Center(xy);
         
-        % find dots that are within the RDK area
-        r_in = xy(:,5) <= matrix_size/2;
         
-        % find the dots that do not overlap with fixation dot
-        r_fixation = xy(:,5) > fixation_size_pix * 2;
+        %% Initialize textures
+        % Create dot texture
+        dotTexture = Screen('MakeTexture', cfg.screen.win, cfg.color.gray * ones(matrixSize));
         
-        % only pass those that match all those conditions
-        r_in = find( all([ ...
-            r_in, ...
-            r_fixation] ,2) );
+        % Aperture texture
+        apertureTexture = Screen('MakeTexture', cfg.screen.win, cfg.color.gray * ones(rect([4 3])));
         
-        % change of format for PTB
-        xy_matrix = transpose(xy(r_in,1:2)); %#ok<FNDSB>
+        % prepare the KbQueue to collect responses
+        getResponse('init', cfg.keyboard.responseBox, cfg);
         
+        [el] = eyeTracker('Calibration', cfg); %#ok<*NASGU>
         
-        %% Create apperture texture for this frame
-        Screen('Fillrect', aperture_texture, PARAMETERS.gray);
-        
-        [aperture_texture, CURRENT] = ...
-            getApertureCfg(PARAMETERS, CURRENT, aperture_texture, matrix_size, rect);
+        standByScreen(cfg);
         
         
-        %% Actual PTB stuff
-        % sanity check before drawin the dots in the texture
-        if ~isempty(xy_matrix)
-            Screen('FillRect', dot_texture, PARAMETERS.gray);
-            Screen('DrawDots', dot_texture, xy_matrix, dot_s, PARAMETERS.white, center, 1);
+        %% Wait for start of experiment
+        
+        %% Start
+        eyeTrack(cfg, 'start');
+        
+        % Do initial flip...
+        vbl = Screen('Flip', cgf.screen.cfg.screen.win);
+        
+        cfg.experimentStart = vbl;
+        
+        current.cycle = 1;
+        current.frame = 1;
+        current.volume = 1;
+        current.condition = 1;
+        
+        for i = 1:cfg.n_frames
+            
+            checkAbort(cfg);
+            
+            current.time = GetSecs -  cfg.experimentStart;
+            
+            current.frame = current.frame + 1;
+            
+            if current.frame > cfg.framePerVolume
+                current.frame = 1;
+                current.volume = current.volume + 1;
+            end
+            
+            if current.volume > cfg.aperture.framePerVolume
+                current.volume = 1;
+                current.condition = current.condition + 1;
+            end
+            
+            %% Remove dots that are too far out, kill dots, reseed dots,
+            % Finds if there are dots to reposition because out of the RDK
+            xy = dotsROut(xy, matrixSize);
+            
+            % Kill some dots and reseed them at random position
+            xy = dotsReseed(nDots, cfg.dot.fractionKill, matrixSize, xy);
+            
+            % calculate distance from matrix center for each dot
+            xy = getDist2Center(xy);
+            
+            % find dots that are within the RDK area
+            rIn = xy(:,5) <= matrixSize/2;
+            
+            % find the dots that do not overlap with fixation dot
+            rFixation = xy(:,5) > cgf.fixation.sizePix * 2;
+            
+            % only pass those that match all those conditions
+            rIn = find( all([ ...
+                rIn, ...
+                rFixation] ,2) );
+            
+            % change of format for PTB
+            xyMatrix = transpose(xy(rIn,1:2)); %#ok<FNDSB>
+            
+            
+            %% Create apperture texture for this frame
+            Screen('Fillrect', apertureTexture, cfg.color.gray);
+            
+            [apertureTexture, current] = ...
+                getApertureCfg(cfg, current, apertureTexture, matrixSize, cfg.screen.winRect);
+            
+            
+            %% Actual PTB stuff
+            % sanity check before drawin the dots in the texture
+            if ~isempty(xyMatrix)
+                Screen('FillRect', dotTexture, cfg.gray);
+                Screen('DrawDots', dotTexture, xyMatrix, dotSize, cfg.color.white, center, 1);
+            else
+                warning('no dots to plot')
+                break
+            end
+            
+            % Draw dot texture, aperture texture, fixation gap around fixation
+            % and fixation dot
+            Screen('DrawTexture', cfg.screen.win, dotTexture, stimRect, CenterRect(stimRect, rect));
+            
+            Screen('DrawTexture', cfg.screen.win, apertureTexture, ...
+                cfg.screen.winRect, cfg.screen.winRect, current.appertureAngle - 90);
+            
+            drawFixation(cfg);
+            
+            [target] = drawTarget(target, targetsTimings, current, ring, cfg);
+            
+            %% Flip current frame
+            rft = Screen('Flip', cfg.screen.win, rft + cfg.screen.ifi);
+            
+            %% Collect and save target info
+            if target.isOnset
+                target.onset = rft - cfg.experimentStart;
+            elseif target.isOffset
+                target.duration = (rft - cfg.experimentStart) - target.onset;
+                saveEventsFile('save', cfg, target);
+            end
+            
+            collectAndSaveResponses(cfg, logFile, cfg.experimentStart);
+            
+            
+            %% Update everything
+            
+            % Move the dots
+            xy(:,1:2) = xy(:,1:2) + xy(:,3:4);
+            
+            % update motion direction
+            current.angle_motion = current.angle_motion + speedRotationMotion;
+            [horVector, vertVector] = decompMotion(current.angle_motion);
+            
+            % update dot matrix
+            xy = getXYMotion(xy, dotNature, horVector, vertVector, pixelPerFrame);
+            
+            clear xy_matrix
+            
+        end
+        
+        %% End the experiment
+        drawFixation(cfg);
+        endExpmt = Screen('Flip', cfg.screen.cfg.screen.win);
+        
+        dispExpDur(endExpmt, cfg.experimentStart);
+        
+        getResponse('stop', cfg.keyboard.responseBox);
+        getResponse('release', cfg.keyboard.responseBox);
+        
+        saveEventsFile('close', cfg, logFile);
+        
+        eyeTracker('StopRecordings', cfg);
+        eyeTracker('Shutdown', cfg);
+        
+        %       data = feedbackScreen(cfg, expParameters);
+        
+        WaitSecs(1);
+        
+        %% Save
+        % TODO
+        %         data = save2TSV(frameTimes, behavior, expParameters);
+        
+        % clear stim from structure and a few variables to save memory
+        cfg = rmfield(cfg, 'stimulus');
+        
+        matFile = fullfile( ...
+            cfg.dir.output, ...
+            strrep(cfg.fileName.events, 'tsv', 'mat'));
+        if IsOctave
+            save(matFile, '-mat7-binary');
         else
-            warning('no dots to plot')
-            break
+            save(matFile, '-v7.3');
         end
         
-        % Draw dot texture, aperture texture, fixation gap around fixation
-        % and fixation dot
-        Screen('DrawTexture', win, dot_texture, stim_rect, CenterRect(stim_rect, rect));
+        output = bids.util.tsvread( ...
+            fullfile(cfg.dir.outputSubject, cfg.fileName.modality, ...
+            cfg.fileName.events));
         
-        Screen('DrawTexture', win, aperture_texture, rect, rect, CURRENT.apperture_angle - 90);
+        disp(output);
         
-        Screen('FillOval', win, PARAMETERS.gray, ...
-            CenterRect([0 0 fixation_size_pix*2 fixation_size_pix*2], rect));
+        WaitSecs(4);
         
-        Screen('FillOval', win, PARAMETERS.white, ...
-            CenterRect([0 0 fixation_size_pix fixation_size_pix], rect));
+        %% Farewell screen
+        farewellScreen(cfg);
         
+        cleanUp;
         
-        %% Draw target
-        [TARGET] = drawTarget(TARGET, events, CURRENT, win, rect, PARAMETERS);
-        
-        
-        %% Flip current frame
-        % Tell PTB that no further drawing commands will follow before Screen('Flip')
-        Screen('DrawingFinished', win);
-        
-        % Show everything
-        vbl = Screen('Flip', win, vbl + PARAMETERS.wait_frames*ifi);
-        
-        % collect target actual presentation time and target position
-        if TARGET.onset
-            target_data(end+1,[1 3:5]) = vbl-start_expmt; %#ok<AGROW>
-        elseif TARGET.offset
-            target_data(end,2) = vbl-start_expmt;
-        end
-        
-        if PARAMETERS.print_gif
-            filename = fullfile(pwd, 'screen_capture', 'RDK_');
-            printScreen(win, filename, i)
-        end
-        
-        
-        %% Behavioural response
-        [BEHAVIOUR, prev_keypr, QUIT] = ...
-            getBehResp(keyCodes, win, PARAMETERS, rect, prev_keypr, BEHAVIOUR, start_expmt);
-        
-        
-        %% Update everything
-        
-        % Move the dots
-        xy(:,1:2) = xy(:,1:2) + xy(:,3:4);
-        
-        % update motion direction
-        CURRENT.angle_motion = CURRENT.angle_motion + spd_rot_mot_f;
-        [hor_vector, vert_vector] = decompMotion(CURRENT.angle_motion);
-        
-        % update dot matrix
-        xy = getXYMotion(xy, dot_nature, hor_vector, vert_vector, pfs);
-        
-        clear xy_matrix
-        
+    catch
+        cleanUp;
+        psychrethrow(psychlasterror);
     end
     
-    farewellScreen(win, PARAMETERS, rect)
-    
-    end_expmt = Screen('Flip', win);
-    
-    
-    %% Experiment duration
-    dispExpDur(end_expmt, start_expmt)
-    
-    WaitSecs(1);
-    
-    if emulate ~= 1
-        IOPort('ConfigureSerialPort', my_port, 'StopBackgroundRead');
-        IOPort('Close', my_port);
-    end
-    
-    eyeTrack(PARAMETERS, 'stop');
-    
-    cleanUp
-    
-    
-catch
-    cleanUp
-    psychrethrow(psychlasterror);
 end

@@ -1,5 +1,5 @@
-function [hor_vector, vert_vector] = decompMotion(angle_motion)
+function [horVector, vertVector] = decompMotion(angleMotion)
 % decompose angle of start motion into horizontal and vertical vector
-hor_vector = cos(pi*angle_motion/180);
-vert_vector = sin(pi*angle_motion/180);
+horVector = cos(pi*angleMotion/180);
+vertVector = sin(pi*angleMotion/180);
 end
