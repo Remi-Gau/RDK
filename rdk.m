@@ -1,7 +1,7 @@
 function rdk(cfg)
 
     if nargin < 1
-        apertureType = 'wedge';
+        apertureType = 'none';
     end
     if nargin < 2
         direction = '-';
@@ -50,9 +50,9 @@ function rdk(cfg)
     target.target_width = cfg.target.size;
     target.size = cfg.target.size;
 
-    current.frame = 0;
-    current.stim = 1;
-    current.angleMotion = cfg.dot.angleMotion;
+    thisEvent.frame = 0;
+    thisEvent.stim = 1;
+    thisEvent.angleMotion = cfg.dot.angleMotion;
 
     %% Setup
     % TODO
@@ -74,8 +74,7 @@ function rdk(cfg)
         cfg.framePerVolume = ceil(cfg.mri.repetitionTime / cfg.screen.ifi);
 
         % apply pixels per degree conversion
-        target = degToPix('size', target, cfg);
-        cfg.fixation = degToPix('size', cfg.fixation, cfg);
+        target = degToPix('target_width', target, cfg);
 
         %% Set general RDK and display details
         % diameter of circle covered by the RDK
@@ -130,7 +129,7 @@ function rdk(cfg)
         clear X Y;
 
         % decompose angle of start motion into horizontal and vertical vector
-        [horVector, vertVector] = decompMotion(current.angleMotion);
+        [horVector, vertVector] = decomposeMotion(thisEvent.angleMotion);
 
         % Gives a pre determinded horizontal and vertical speed to the signal dots
         xy = getXYMotion(xy, dotNature, horVector, vertVector, pixelPerFrame);
@@ -164,30 +163,30 @@ function rdk(cfg)
         %         eyeTrack(cfg, 'start');
 
         % Do initial flip...
-        vbl = Screen('Flip', cfg.screen.win);
-        cfg.experimentStart = vbl;
+        cfg = getExperimentStart(cfg);
+        vbl = cfg.experimentStart;
 
-        current.cycle = 1;
-        current.frame = 1;
-        current.volume = 1;
-        current.condition = 1;
+        thisEvent.cycle = 1;
+        thisEvent.frame = 1;
+        thisEvent.volume = 1;
+        thisEvent.condition = 1;
 
         for i = 1:cfg.nbFrames
 
             checkAbort(cfg);
 
-            current.time = GetSecs -  cfg.experimentStart;
+            thisEvent.time = GetSecs -  cfg.experimentStart;
 
-            current.frame = current.frame + 1;
+            thisEvent.frame = thisEvent.frame + 1;
 
-            if current.frame > cfg.aperture.framePerVolume
-                current.frame = 1;
-                current.volume = current.volume + 1;
+            if thisEvent.frame > cfg.aperture.framePerVolume
+                thisEvent.frame = 1;
+                thisEvent.volume = thisEvent.volume + 1;
             end
 
-            if current.volume > cfg.aperture.framePerVolume
-                current.volume = 1;
-                current.condition = current.condition + 1;
+            if thisEvent.volume > cfg.aperture.framePerVolume
+                thisEvent.volume = 1;
+                thisEvent.condition = thisEvent.condition + 1;
             end
 
             %% Remove dots that are too far out, kill dots, reseed dots,
@@ -204,7 +203,7 @@ function rdk(cfg)
             rIn = xy(:, 5) <= matrixSize / 2;
 
             % find the dots that do not overlap with fixation dot
-            rFixation = xy(:, 5) > cfg.fixation.sizePix * 2;
+            rFixation = xy(:, 5) > cfg.fixation.widthPix * 2;
 
             % only pass those that match all those conditions
             rIn = find(all([ ...
@@ -217,8 +216,8 @@ function rdk(cfg)
             %% Create apperture texture for this frame
             Screen('Fillrect', apertureTexture, cfg.color.gray);
 
-            [apertureTexture, current] = ...
-                getApertureCfg(cfg, current, apertureTexture, matrixSize, cfg.screen.winRect);
+            [apertureTexture, thisEvent] = ...
+                getApertureCfg(cfg, thisEvent, apertureTexture, matrixSize, cfg.screen.winRect);
 
             %% Actual PTB stuff
             % sanity check before drawin the dots in the texture
@@ -235,11 +234,11 @@ function rdk(cfg)
             Screen('DrawTexture', cfg.screen.win, dotTexture, stimRect, CenterRect(stimRect, cfg.screen.winRect));
 
             Screen('DrawTexture', cfg.screen.win, apertureTexture, ...
-                cfg.screen.winRect, cfg.screen.winRect, current.appertureAngle - 90);
+                cfg.screen.winRect, cfg.screen.winRect, thisEvent.appertureAngle - 90);
 
             drawFixation(cfg);
 
-            [target] = drawTarget(target, targetsTimings, current, current, cfg);
+            [target] = drawTarget(target, targetsTimings, thisEvent, cfg);
 
             %% Flip current frame
             vbl = Screen('Flip', cfg.screen.win, vbl + cfg.screen.ifi);
@@ -260,8 +259,8 @@ function rdk(cfg)
             xy(:, 1:2) = xy(:, 1:2) + xy(:, 3:4);
 
             % update motion direction
-            current.angleMotion = current.angleMotion + speedRotationMotion;
-            [horVector, vertVector] = decompMotion(current.angleMotion);
+            thisEvent.angleMotion = thisEvent.angleMotion + speedRotationMotion;
+            [horVector, vertVector] = decomposeMotion(thisEvent.angleMotion);
 
             % update dot matrix
             xy = getXYMotion(xy, dotNature, horVector, vertVector, pixelPerFrame);
@@ -271,10 +270,7 @@ function rdk(cfg)
         end
 
         %% End the experiment
-        drawFixation(cfg);
-        endExpmt = Screen('Flip', cfg.screen.win);
-
-        dispExpDur(endExpmt, cfg.experimentStart);
+        cfg = getExperimentEnd(cfg);
 
         getResponse('stop', cfg.keyboard.responseBox);
         getResponse('release', cfg.keyboard.responseBox);

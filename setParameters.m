@@ -69,6 +69,9 @@ function [cfg] = setParameters(cfg)
 
     %% Experiment parameters
 
+    cfg.fixation.type = 'cross'; % dot bestFixation
+    cfg.fixation.width = .15; % in degrees VA
+
     [cfg] = setMonitor(cfg);
     [cfg] = setMRI(cfg);
     [cfg] = setKeyboards(cfg);
