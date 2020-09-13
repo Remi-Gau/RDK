@@ -1,7 +1,7 @@
 function rdk(cfg)
 
     if nargin < 1
-        apertureType = 'none';
+        apertureType = 'bar';
     end
     if nargin < 2
         direction = '-';
@@ -10,7 +10,7 @@ function rdk(cfg)
         emul = 1;
     end
     if nargin < 4
-        debug = 1;
+        debug = 0;
     end
 
     initEnv();
