@@ -86,10 +86,10 @@ end
 function addDependencies()
 
     pth = fileparts(mfilename('fullpath'));
-    addpath(fullfile(pth, 'lib', 'CPP_retinotopy', 'lib', 'CPP_BIDS', 'src'));
+
+    addpath(genpath(fullfile(pth, 'lib', 'CPP_retinotopy', 'lib', 'CPP_BIDS', 'src')));
     addpath(genpath(fullfile(pth, 'lib', 'CPP_retinotopy', 'lib', 'CPP_PTB', 'src')));
-    addpath(fullfile(pth, 'lib', 'CPP_retinotopy', 'lib', 'CPP_PTB'));
     addpath(fullfile(pth, 'lib', 'CPP_retinotopy', 'subfun'));
-    addpath(genpath(fullfile(pth, 'subfun')));
+    addpath(genpath(fullfile(pth, 'src')));
 
 end

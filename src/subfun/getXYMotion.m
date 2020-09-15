@@ -3,5 +3,5 @@ function xy = getXYMotion(xy, dotNature, hor_vector, vert_vector, pixelPerFrame)
     %     repmat([hor_vector vert_vector], [sum(dot_nature), 1]) ...
     %     .* (pfs * rand([sum(dot_nature), 1]));
     xy(dotNature, 3:4) = ...
-        repmat([hor_vector vert_vector], [sum(dotNature), 1]) * pixelPerFrame ;
+        repmat([hor_vector vert_vector], [sum(dotNature), 1]) * pixelPerFrame;
 end
