@@ -2,15 +2,10 @@ function [cfg] = setParameters(cfg)
 
     cfg.verbose = false;
 
-    if cfg.debug.do
-        cfg.debug.transpWin = true;
-        cfg.debug.smallWin = false;
-    else
-        cfg.debug.transpWin = false;
-        cfg.debug.smallWin = false;
-    end
+    cfg.debug.transpWin = true;
+    cfg.debug.smallWin = false;
 
-    cfg.dir.output = fullfile(fileparts(mfilename('fullpath')), 'output');
+    cfg.dir.output = fullfile(fileparts(mfilename('fullpath')), '..', 'output');
 
     %% Splash screens
     cfg.welcome = 'Please fixate the black dot at all times!';
@@ -22,125 +17,53 @@ function [cfg] = setParameters(cfg)
     cfg.fa = 'You responded %i times when there was no target.';
     cfg.respWin = 2; % duration of the response window
 
-    %% Dots details
-    % dots per degree^2
-    cfg.dot.density = .15;
-    % max dot speed (deg/sec)
-    cfg.dot.speed = 15;
-    % width of dot (deg)
-    cfg.dot.width = .25;
-    % fraction of dots to kill each frame (limited lifetime)
-    cfg.dot.fractionKill = 0.05;
-    % Amount of coherence
-    cfg.dot.coherence = 1;
-    % starting motion direction: 0 gives right, 90 gives down, 180 gives left and 270 up.
-    cfg.dot.angleMotion = 0;
-    % speed rotation of motion direction in degrees per second
-    cfg.dot.speedRotationMotion = 360 / 15;
-
-    %% Aperture details
-
-    switch  cfg.aperture.type
-
-        case 'none'
-            cfg.aperture.width = NaN;
-            cfg.aperture.volsPerCycle = NaN;
-            cfg.aperture.direction = NaN;
-
-        case 'bar'
-            % aperture motion direction
-            cfg.aperture.direction = [90 45 0 135 270 225 180 315];
-            cfg.aperture.volsPerCycle = 12;
-
-        case 'ring'
-            % aperture width in deg VA (bar or annulus)
-            cfg.aperture.width = 2;
-            cfg.aperture.volsPerCycle = 60;
-
-        case 'wedge'
-            % aperture width in deg (wedge)
-            cfg.aperture.width = 60;
-            cfg.aperture.volsPerCycle = 60;
-    end
-
-    cfg.cyclesPerExpmt = 3;
-    cfg.volsPerCycle = cfg.aperture.volsPerCycle;
-    cfg.aperture.framePerVolume = 3;
-
     %% Experiment parameters
-
-    cfg.fixation.type = 'cross'; % dot bestFixation
-    cfg.fixation.width = .15; % in degrees VA
-
     [cfg] = setMonitor(cfg);
     [cfg] = setMRI(cfg);
     [cfg] = setKeyboards(cfg);
 
-    % Target parameters
-    % Changing those parameters might affect participant's performance
-    % Need to find a set of parameters that give 85-90% accuracy.
+    % Stimulus cycles per run
+    % I think this is needed to run but is not actually USED !!!!
+    cfg.cyclesPerExpmt = 5;
 
-    % Probability of a target event
-    cfg.target.probability = 0.1;
-    % Duration of a target event in ms
-    cfg.target.duration = 0.15;
-    % diameter of target circle in degrees VA
-    cfg.target.size = .15;
-    % rgb color of the target
-    cfg.target.color = [255 200 200];
-    % is the fixation dot the only possible location of the target?
-    % setting this to true might induce more saccade (not formally tested)
-    cfg.target.central = true;
+    % Volumes per cycle - sets the "speed" of the mapping -
+    % standard is to have VolsPerCycle * TR ~ 1 min
+    % e.g expParameters.VolsPerCycle = ceil(60/expParameters.TR);
+    % expParameters.VolsPerCycle = ceil(5/expParameters.TR);
+    cfg.volsPerCycle = 10;
 
-    cfg.fixation.size = .15; % in degrees VA
+    %% Stimulus
 
-    %% Animation details
-    % proportion of screeen height occupied by the RDK
-    cfg.matrixSize = .99;
-    % number of animation frames in loop
-    cfg.nbFrames = 1600;
-    % Show new dot-images at each waitframes'th monitor refresh
-    cfg.waitFrames = 1;
+    % width of the stimulus to generate (to make things simple choose the height
+    % of your screen resolution)
+    % when using dots this is the size of the square where the dots are drawn
+    cfg.stimWidth = 1080;
+
+    % will magnify the stim until it reaches that width in pixel
+    %     cfg.stimDestWidth = 500;
+
+    cfg.stimDestWidth = 2048;
+
+    cfg = setDotsParameters(cfg);
+
+    cfg = setTargetParameters(cfg);
+
+    cfg.fixation.type = 'bestFixation'; % dot bestFixation
+    cfg.fixation.width = .15; % in degrees VA
 
     %% Eyetracker parameters
     cfg.eyeTracker.do = false;
-    %     cfg.eyeTrackerParam.host = '10.41.111.213';  % SMI machine ip: '10.41.111.213'
-    %     cfg.eyeTrackerParam.Port = 4444;
-    %     cfg.eyeTrackerParam.Window = 1;
 
-    %% Compute some more parameters
-
-    % aperture details
-    cfg.aperture.cycleDuration = cfg.mri.repetitionTime * ...
-        cfg.aperture.volsPerCycle;
-
-    switch cfg.aperture.type
-
-        case 'ring'
-
-            cfg.screen.FOV = computeFOV(cfg);
-
-            % ring apertures
-            % cs_func_fact is used to expand with log increasing speed so that ring is at
-            % max_ecc at end of cycle
-            cfg.ring.maxEcc = ...
-                cfg.screen.FOV / 2 + cfg.aperture.width + log(cfg.screen.FOV / 2 + 1);
-            cfg.ring.csFuncFact = ...
-                1 / ((cfg.ring.maxEcc + exp(1)) * ...
-                log(cfg.ring.maxEcc + exp(1)) - ...
-                (cfg.ring.maxEcc + exp(1)));
-
-    end
+    %% Saving aperture parameters (for pRF)
+    cfg.aperture.outputDir = fullfile(cfg.dir.output, 'stimuli');
+    cfg.aperture.dimension = 200;
 
     %% DO NOT TOUCH
+    if cfg.debug.do
+        cfg.cyclesPerExpmt = 4;
+    end
 
     cfg.audio.do = false;
-
-    % % %         expParameters.extraColumns.wedge_angle = struct( ...
-    % % %         'length', 1, ...
-    % % %         'bids', struct( ...
-    % % %         'LongName', 'angular width of the wedge', ...
-    % % %         'Units', 'degrees'));
 
     cfg.extraColumns.x_target_pos = struct( ...
         'length', 1, ...
@@ -164,7 +87,10 @@ end
 
 function [cfg] = setKeyboards(cfg)
     cfg.keyboard.escapeKey = 'ESCAPE';
-    cfg.keyboard.responseKey = {'space'};
+    cfg.keyboard.responseKey = { ...
+        'r', 'g', 'y', 'b', ...
+        'd', 'n', 'z', 'e', ...
+        't'};
     cfg.keyboard.keyboard = [];
     cfg.keyboard.responseBox = [];
 
@@ -177,40 +103,88 @@ end
 function [cfg] = setMRI(cfg)
     % letter sent by the trigger to sync stimulation and volume acquisition
     cfg.mri.triggerKey = 't';
-    cfg.mri.triggerNb = 4;
-    cfg.mri.triggerString = 'Waiting for the scanner';
+    cfg.mri.triggerNb = 1;
+    cfg.mri.repetitionTime = 1.8;
 
-    cfg.mri.repetitionTime = 1;
-
-    cfg.bids.MRI.Instructions = '';
+    cfg.bids.MRI.Instructions = 'Press the button everytime a red dot appears!';
     cfg.bids.MRI.TaskDescription = [];
 
 end
 
-function [cfg] = setMonitor(cfg)
+function [cfg, expParameters] = setMonitor(cfg, expParameters)
 
     % Monitor parameters for PTB
     cfg.color.white = [255 255 255];
     cfg.color.black = [0 0 0];
     cfg.color.red = [255 0 0];
-    cfg.color.gray = mean([cfg.color.black; cfg.color.white]);
+    cfg.color.grey = mean([cfg.color.black; cfg.color.white]);
     cfg.color.background = [127 127 127];
     cfg.color.foreground = cfg.color.black;
 
-    % Monitor parameters
-    cfg.screen.monitorWidth = 42; % in cm
-    cfg.screen.monitorDistance = 134; % distance from the screen in cm
+    % Monitor parameters (in cm)
+    cfg.screen.monitorWidth = 42;
+    cfg.screen.monitorDistance = 134;
+
+    if strcmpi(cfg.testingDevice, 'mri')
+        cfg.screen.monitorWidth = 25;
+        cfg.screen.monitorDistance = 95;
+    end
 
     % Resolution [width height refresh_rate]
-    cfg.screen.resolution = [800 600 60];
+    %     cfg.screen.resolution = {1024, 768, []};
+
+    % to use to draw the actual field of view of the participant
+    % [width height]
+    cfg.screen.effectiveFieldOfView = [500 300];
 
     cfg.text.color = cfg.color.black;
     cfg.text.font = 'Courier New';
     cfg.text.size = 18;
     cfg.text.style = 1;
 
-    if strcmpi(cfg.testingDevice, 'mri')
-        cfg.screen.monitorWidth = 42; % in cm
-        cfg.screen.monitorDistance = 134; % distance from the screen in cm
-    end
+end
+
+function cfg = setDotsParameters(cfg)
+
+    % Speed in visual angles / second
+    cfg.dot.speed = 0.1;
+    % Coherence Level (0-1)
+    cfg.dot.coherence = 1;
+    % Number of dots per visual angle square.
+    cfg.dot.density = 2;
+    % Dot life time in seconds
+    cfg.dot.lifeTime = Inf;
+    % proportion of dots killed per frame
+    cfg.dot.proportionKilledPerFrame = 0.01;
+    % Dot Size (dot width) in visual angles.
+    cfg.dot.size = .2;
+    cfg.dot.color = cfg.color.white;
+
+    cfg.design.motionType = 'translation';
+
+    cfg.timing.eventDuration = Inf;
+end
+
+function cfg = setTargetParameters(cfg)
+
+    % Target parameters
+    % Changing those parameters might affect participant's performance
+    % Need to find a set of parameters that give 85-90% accuracy.
+
+    % Probability of a target event
+    % TO DO: define propotion over WHAT !!!! Give some sort of unit
+    cfg.target.probability = 0.02;
+    %
+    %
+
+    % Duration of a target event in ms
+    cfg.target.duration = 0.1;
+    % diameter of target circle in degrees VA
+    cfg.target.size = .15;
+    % rgb color of the target
+    cfg.target.color = [255 100 100];
+    % is the fixation dot the only possible location of the target?
+    % setting this to true might induce more saccade (not formally tested)
+    cfg.target.central = true;
+
 end
