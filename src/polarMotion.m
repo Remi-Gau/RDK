@@ -1,3 +1,5 @@
+% (C) Copyright 2020 Remi Gau
+
 function polarMotion(debug, direc, emul)
     % polar(debug, direc, stim, emul)
     %
