@@ -16,17 +16,17 @@ function polarMotion(debug, direc, emul)
         direc = '-';
     end
     if nargin < 1 || isempty(debug)
-        debug = 1;
+        debug = false;
     end
 
     initEnv();
 
     %% Experiment parameters
 
-    cfg.task.name = 'retinotopy polar';
+    cfg.task.name = 'motion direction prf';
 
     % Stimulus type
-    cfg.aperture.type = 'wedge';
+    cfg.aperture.type = 'none';
     % Width of wedge in degrees
     cfg.aperture.width = 70;
     % Direction of cycling
@@ -36,9 +36,8 @@ function polarMotion(debug, direc, emul)
 
     cfg.debug.do = debug;
 
-    if ~emul
         cfg.testingDevice = 'mri';
-    else
+    if emul 
         cfg.testingDevice = 'pc';
     end
 
@@ -57,7 +56,7 @@ function polarMotion(debug, direc, emul)
     [cfg] = setParameters(cfg);
 
     %% Run the experiment
-    [data, cfg] = prfMotion(cfg);
+    [~, ~] = prfMotion(cfg);
 
     %     plotResults(data, expParameters);
 

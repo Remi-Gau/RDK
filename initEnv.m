@@ -19,6 +19,7 @@ function initEnv()
 
     octaveVersion = '4.0.3';
     matlabVersion = '9.2.0';
+    installlist = {'statistics', 'image'};
 
     if isOctave
 
@@ -27,7 +28,6 @@ function initEnv()
             error('Minimum required Octave version: %s', octaveVersion);
         end
 
-        installlist = {'statistics'};
         for ii = 1:length(installlist)
             
             packageName = installlist{ii};

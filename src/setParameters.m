@@ -2,7 +2,7 @@
 
 function [cfg] = setParameters(cfg)
 
-    cfg.verbose = false;
+    cfg.verbose = 1;
 
     cfg.debug.transpWin = true;
     cfg.debug.smallWin = false;
@@ -26,13 +26,8 @@ function [cfg] = setParameters(cfg)
 
     % Stimulus cycles per run
     % I think this is needed to run but is not actually USED !!!!
-    cfg.cyclesPerExpmt = 5;
+    cfg.cyclesPerExpmt = 3;
 
-    % Volumes per cycle - sets the "speed" of the mapping -
-    % standard is to have VolsPerCycle * TR ~ 1 min
-    % e.g expParameters.VolsPerCycle = ceil(60/expParameters.TR);
-    % expParameters.VolsPerCycle = ceil(5/expParameters.TR);
-    cfg.volsPerCycle = 10;
 
     %% Stimulus
 
@@ -51,7 +46,7 @@ function [cfg] = setParameters(cfg)
     cfg = setTargetParameters(cfg);
 
     cfg.fixation.type = 'bestFixation'; % dot bestFixation
-    cfg.fixation.width = .15; % in degrees VA
+    cfg.fixation.width = .1; % in degrees VA
 
     %% Eyetracker parameters
     cfg.eyeTracker.do = false;
@@ -84,6 +79,18 @@ function [cfg] = setParameters(cfg)
         'bids', struct( ...
         'LongName', 'diameter of the the target', ...
         'Units', 'degrees of visual angles'));
+    
+    cfg.extraColumns.keyName = struct( ...
+        'length', 1, ...
+        'bids', struct( ...
+        'LongName', 'key pressed', ...
+        'Units', ''));
+    
+    cfg.extraColumns.dotDirection = struct( ...
+        'length', 1, ...
+        'bids', struct( ...
+        'LongName', 'dot direction', ...
+        'Units', 'degrees'));
 
 end
 
@@ -105,11 +112,13 @@ end
 function [cfg] = setMRI(cfg)
     % letter sent by the trigger to sync stimulation and volume acquisition
     cfg.mri.triggerKey = 't';
-    cfg.mri.triggerNb = 1;
+    cfg.mri.triggerNb = 5;
     cfg.mri.repetitionTime = 1.8;
 
     cfg.bids.MRI.Instructions = 'Press the button everytime a red dot appears!';
     cfg.bids.MRI.TaskDescription = [];
+    
+        cfg.pacedByTriggers.do = false;
 
 end
 
@@ -120,7 +129,7 @@ function [cfg, expParameters] = setMonitor(cfg, expParameters)
     cfg.color.black = [0 0 0];
     cfg.color.red = [255 0 0];
     cfg.color.grey = mean([cfg.color.black; cfg.color.white]);
-    cfg.color.background = [127 127 127];
+    cfg.color.background = cfg.color.black;
     cfg.color.foreground = cfg.color.black;
 
     % Monitor parameters (in cm)
@@ -139,9 +148,9 @@ function [cfg, expParameters] = setMonitor(cfg, expParameters)
     % [width height]
     cfg.screen.effectiveFieldOfView = [500 300];
 
-    cfg.text.color = cfg.color.black;
+    cfg.text.color = cfg.color.white;
     cfg.text.font = 'Courier New';
-    cfg.text.size = 18;
+    cfg.text.size = 22;
     cfg.text.style = 1;
 
 end
@@ -149,15 +158,15 @@ end
 function cfg = setDotsParameters(cfg)
 
     % Speed in visual angles / second
-    cfg.dot.speed = 0.1;
+    cfg.dot.speed = 10;
     % Coherence Level (0-1)
     cfg.dot.coherence = 1;
     % Number of dots per visual angle square.
-    cfg.dot.density = 2;
+    cfg.dot.density = 1.5;
     % Dot life time in seconds
     cfg.dot.lifeTime = Inf;
     % proportion of dots killed per frame
-    cfg.dot.proportionKilledPerFrame = 0.01;
+    cfg.dot.proportionKilledPerFrame = 0.02;
     % Dot Size (dot width) in visual angles.
     cfg.dot.size = .2;
     cfg.dot.color = cfg.color.white;
@@ -165,6 +174,9 @@ function cfg = setDotsParameters(cfg)
     cfg.design.motionType = 'translation';
 
     cfg.timing.eventDuration = Inf;
+    
+    durationSecs = 360;
+    cfg.dot.rotationStepDegPerSec = 360 * cfg.cyclesPerExpmt / durationSecs;
 end
 
 function cfg = setTargetParameters(cfg)
@@ -175,14 +187,14 @@ function cfg = setTargetParameters(cfg)
 
     % Probability of a target event
     % TO DO: define propotion over WHAT !!!! Give some sort of unit
-    cfg.target.probability = 0.02;
+    cfg.target.probability = 0.01;
     %
     %
 
     % Duration of a target event in ms
     cfg.target.duration = 0.1;
     % diameter of target circle in degrees VA
-    cfg.target.size = .15;
+    cfg.target.size = .1;
     % rgb color of the target
     cfg.target.color = [255 100 100];
     % is the fixation dot the only possible location of the target?
